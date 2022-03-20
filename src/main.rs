@@ -24,6 +24,7 @@ fn main() {
             ..Default::default()
         })
         .add_startup_system(setup_camera)
+        .add_system(position_transform)
         .add_plugins(DefaultPlugins)
         .run();
 }
@@ -33,10 +34,24 @@ fn setup_camera(mut commands: Commands) {
     commands
         .spawn_bundle(SpriteBundle {
             sprite: Sprite {
-                custom_size: Some(Vec2::new(20.0, 20.0)),
                 ..Default::default()
             },
             ..Default::default()
         })
         .insert(Position { x: 1, y: 5 });
+}
+
+fn position_transform(mut position_query: Query<(&Position, &mut Transform, &mut Sprite)>) {
+    let origin_x = UNIT_WIDTH as i32 / 2 - SCREEN_WIDTH as i32 / 2;
+    let origin_y = UNIT_HEIGHT as i32 / 2 - SCREEN_HEIGHT as i32 / 2;
+    position_query
+        .iter_mut()
+        .for_each(|(pos, mut transform, mut sprite)| {
+            transform.translation = Vec3::new(
+                (origin_x + pos.x as i32 * UNIT_WIDTH as i32) as f32,
+                (origin_y + pos.y as i32 * UNIT_HEIGHT as i32) as f32,
+                0.0,
+            );
+            sprite.custom_size = Some(Vec2::new(UNIT_WIDTH as f32, UNIT_HEIGHT as f32))
+        });
 }
