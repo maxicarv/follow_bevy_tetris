@@ -17,6 +17,18 @@ fn main() {
             height: SCREEN_HEIGHT as f32,
             ..Default::default()
         })
+        .add_startup_system(setup_camera)
         .add_plugins(DefaultPlugins)
         .run();
+}
+
+fn setup_camera(mut commands: Commands) {
+    commands.spawn_bundle(OrthographicCameraBundle::new_2d());
+    commands.spawn_bundle(SpriteBundle {
+        sprite: Sprite {
+            custom_size: Some(Vec2::new(20.0, 20.0)),
+            ..Default::default()
+        },
+        ..Default::default()
+    });
 }
