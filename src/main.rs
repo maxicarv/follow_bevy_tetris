@@ -1,4 +1,5 @@
 use bevy::prelude::*;
+use rand::prelude::*;
 
 const UNIT_WIDTH: u32 = 40;
 const UNIT_HEIGHT: u32 = 40;
@@ -25,20 +26,13 @@ fn main() {
         })
         .add_startup_system(setup_camera)
         .add_system(position_transform)
+        .add_system(spawn_block_element)
         .add_plugins(DefaultPlugins)
         .run();
 }
 
 fn setup_camera(mut commands: Commands) {
     commands.spawn_bundle(OrthographicCameraBundle::new_2d());
-    commands
-        .spawn_bundle(SpriteBundle {
-            sprite: Sprite {
-                ..Default::default()
-            },
-            ..Default::default()
-        })
-        .insert(Position { x: 1, y: 5 });
 }
 
 fn position_transform(mut position_query: Query<(&Position, &mut Transform, &mut Sprite)>) {
@@ -54,4 +48,29 @@ fn position_transform(mut position_query: Query<(&Position, &mut Transform, &mut
             );
             sprite.custom_size = Some(Vec2::new(UNIT_WIDTH as f32, UNIT_HEIGHT as f32))
         });
+}
+
+fn spawn_block_element(mut commands: Commands) {
+    //See to URL 'https://bevyengine.org/learn/book/migration-guides/0.5-0.6/#spritebundle-and-sprite'
+    let colors = vec![
+        Color::rgb_u8(64, 230, 100),
+        Color::rgb_u8(220, 64, 90),
+        Color::rgb_u8(70, 150, 210),
+        Color::rgb_u8(220, 230, 70),
+        Color::rgb_u8(35, 220, 241),
+        Color::rgb_u8(240, 140, 70),
+    ];
+    let mut rng = rand::thread_rng();
+    let mut color_index: usize = rng.gen();
+    color_index %= colors.len();
+
+    commands
+        .spawn_bundle(SpriteBundle {
+            sprite: Sprite {
+                color: colors[color_index],
+                ..Default::default()
+            },
+            ..Default::default()
+        })
+        .insert(Position { x: 1, y: 5 });
 }
