@@ -9,6 +9,12 @@ const Y_LENGTH: u32 = 18;
 const SCREEN_WIDTH: u32 = UNIT_WIDTH * X_LENGTH;
 const SCREEN_HEIGHT: u32 = UNIT_HEIGHT * Y_LENGTH;
 
+#[derive(Component, Clone, Copy, PartialEq, Eq)]
+struct Position {
+    x: i32,
+    y: i32,
+}
+
 fn main() {
     App::new()
         .insert_resource(WindowDescriptor {
@@ -24,11 +30,13 @@ fn main() {
 
 fn setup_camera(mut commands: Commands) {
     commands.spawn_bundle(OrthographicCameraBundle::new_2d());
-    commands.spawn_bundle(SpriteBundle {
-        sprite: Sprite {
-            custom_size: Some(Vec2::new(20.0, 20.0)),
+    commands
+        .spawn_bundle(SpriteBundle {
+            sprite: Sprite {
+                custom_size: Some(Vec2::new(20.0, 20.0)),
+                ..Default::default()
+            },
             ..Default::default()
-        },
-        ..Default::default()
-    });
+        })
+        .insert(Position { x: 1, y: 5 });
 }
