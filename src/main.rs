@@ -13,11 +13,15 @@ fn main() {
     App::new()
         .insert_resource(WindowDescriptor {
             title: "Tetris".to_string(),
-            width: 500.,
-            height: 500.,
+            width: SCREEN_WIDTH as f32,
+            height: SCREEN_HEIGHT as f32,
             ..Default::default()
         })
+        .add_startup_system(setup_camera)
         .add_plugins(DefaultPlugins)
         .run();
 }
 
+fn setup_camera(mut commands: Commands) {
+    commands.spawn_bundle(OrthographicCameraBundle::new_2d());
+}
