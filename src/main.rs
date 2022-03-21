@@ -1,4 +1,4 @@
-use bevy::prelude::*;
+use bevy::{prelude::*};
 use rand::prelude::*;
 
 const UNIT_WIDTH: u32 = 40;
@@ -19,6 +19,8 @@ struct Position {
 #[derive(Component, Clone, PartialEq, Eq)]
 struct BlockPatterns(Vec<Vec<(i32, i32)>>);
 
+struct NewBlockEvent;
+
 fn main() {
     App::new()
         .insert_resource(WindowDescriptor {
@@ -36,7 +38,9 @@ fn main() {
             vec![(0, 0), (0, 1), (1, 0), (1, 1)],   // 四角
             vec![(0, 0), (-1, 0), (1, 0), (0, 1)],  // T
         ]))
+        .add_event::<NewBlockEvent>()
         .add_startup_system(setup_camera)
+        .add_startup_system(setup)
         .add_system(position_transform)
         .add_system(spawn_block)
         .add_plugins(DefaultPlugins)
@@ -45,6 +49,11 @@ fn main() {
 
 fn setup_camera(mut commands: Commands) {
     commands.spawn_bundle(OrthographicCameraBundle::new_2d());
+}
+
+//See to URL 'https://bevyengine.org/learn/book/migration-guides/0.4-0.5/#simplified-events'
+fn setup(mut new_block_events: EventWriter<NewBlockEvent>){    
+    new_block_events.send(NewBlockEvent);
 }
 
 fn position_transform(mut position_query: Query<(&Position, &mut Transform, &mut Sprite)>) {
@@ -101,7 +110,17 @@ fn next_block(block_patterns: &Vec<Vec<(i32, i32)>>) -> Vec<(i32, i32)> {
 fn spawn_block(
     mut commands: Commands,
     block_patterns: Res<BlockPatterns>,
+    //See to URL 'https://bevyengine.org/learn/book/migration-guides/0.4-0.5/#simplified-events'
+    mut new_block_events_reader: EventReader<NewBlockEvent>,
 ) {
+    if new_block_events_reader
+        .iter()
+        .next()
+        .is_none()
+    {
+        return;
+    }
+
     let new_block = next_block(&block_patterns.0);
     let new_color = next_color();
 
