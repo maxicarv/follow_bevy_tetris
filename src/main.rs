@@ -26,6 +26,7 @@ struct Free;
 
 struct NewBlockEvent;
 struct GameTimer(Timer);
+struct InputTimer(Timer);
 struct GameBoard(Vec<Vec<bool>>);
 
 fn main() {
@@ -49,6 +50,10 @@ fn main() {
             std::time::Duration::from_millis(400),
             true,
         )))
+        .insert_resource(InputTimer(Timer::new(
+            std::time::Duration::from_millis(400),
+            true,
+        )))
         .insert_resource(GameBoard(vec![vec![false; 25]; 25]))
         .add_event::<NewBlockEvent>()
         .add_startup_system(setup_camera)
@@ -57,6 +62,7 @@ fn main() {
         .add_system(spawn_block)
         .add_system(game_timer)
         .add_system(block_fall)
+        .add_system(block_horizontal_move)
         .add_plugins(DefaultPlugins)
         .run();
 }
@@ -137,7 +143,7 @@ fn spawn_block(
 
     // ブロックの初期位置
     let initial_x = X_LENGTH / 2;
-    let initial_y = Y_LENGTH - 4;
+    let initial_y = Y_LENGTH;
 
     new_block.iter().for_each(|(r_x, r_y)| {
         spawn_block_element(
@@ -151,9 +157,14 @@ fn spawn_block(
     });
 }
 
-fn game_timer(time: Res<Time>, mut timer: ResMut<GameTimer>) {
+fn game_timer(
+    time: Res<Time>,
+    mut game_timer: ResMut<GameTimer>,
+    mut imput_timer: ResMut<InputTimer>,
+) {
     //See to URL 'https://bevyengine.org/learn/book/migration-guides/0.4-0.5/#timer-now-uses-duration'
-    timer.0.tick(time.delta());
+    game_timer.0.tick(time.delta());
+    imput_timer.0.tick(time.delta());
 }
 
 fn block_fall(
@@ -187,5 +198,57 @@ fn block_fall(
         block_query.iter_mut().for_each(|(_, mut pos, _)| {
             pos.y -= 1;
         });
+    }
+}
+
+fn block_horizontal_move(
+    key_input: Res<Input<KeyCode>>,
+    timer: ResMut<InputTimer>,
+    game_board: ResMut<GameBoard>,
+    mut free_block_query: Query<(Entity, &mut Position, &Free)>,
+) {
+    if !timer.0.finished() {
+        return;
+    }
+    if key_input.pressed(KeyCode::Left) {
+        // 左に移動できるか判定
+        let ok_move_left = free_block_query.iter_mut().all(|(_, pos, _)| {
+            if pos.y as u32 >= Y_LENGTH {
+                return pos.x > 0;
+            }
+
+            if pos.x == 0 {
+                return false;
+            }
+
+            !game_board.0[(pos.y) as usize][pos.x as usize - 1]
+        });
+
+        if ok_move_left {
+            free_block_query.iter_mut().for_each(|(_, mut pos, _)| {
+                pos.x -= 1;
+            });
+        }
+    }
+
+    if key_input.pressed(KeyCode::Right) {
+        // 右に移動できるか判定
+        let ok_move_right = free_block_query.iter_mut().all(|(_, pos, _)| {
+            if pos.y as u32 >= Y_LENGTH {
+                return pos.x as u32 <= X_LENGTH;
+            }
+
+            if pos.x as u32 == X_LENGTH - 1 {
+                return false;
+            }
+
+            !game_board.0[(pos.y) as usize][pos.x as usize + 1]
+        });
+
+        if ok_move_right {
+            free_block_query.iter_mut().for_each(|(_, mut pos, _)| {
+                pos.x += 1;
+            });
+        }
     }
 }
