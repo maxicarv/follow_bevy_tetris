@@ -1,4 +1,4 @@
-use bevy::{prelude::*};
+use bevy::prelude::*;
 use rand::prelude::*;
 
 const UNIT_WIDTH: u32 = 40;
@@ -20,6 +20,7 @@ struct Position {
 struct BlockPatterns(Vec<Vec<(i32, i32)>>);
 
 struct NewBlockEvent;
+struct GameTimer(Timer);
 
 fn main() {
     App::new()
@@ -38,11 +39,17 @@ fn main() {
             vec![(0, 0), (0, 1), (1, 0), (1, 1)],   // 四角
             vec![(0, 0), (-1, 0), (1, 0), (0, 1)],  // T
         ]))
+        .insert_resource(GameTimer(Timer::new(
+            std::time::Duration::from_millis(400),
+            true,
+        )))
         .add_event::<NewBlockEvent>()
         .add_startup_system(setup_camera)
         .add_startup_system(setup)
         .add_system(position_transform)
         .add_system(spawn_block)
+        .add_system(game_timer)
+        .add_system(block_fall)
         .add_plugins(DefaultPlugins)
         .run();
 }
@@ -52,7 +59,7 @@ fn setup_camera(mut commands: Commands) {
 }
 
 //See to URL 'https://bevyengine.org/learn/book/migration-guides/0.4-0.5/#simplified-events'
-fn setup(mut new_block_events: EventWriter<NewBlockEvent>){    
+fn setup(mut new_block_events: EventWriter<NewBlockEvent>) {
     new_block_events.send(NewBlockEvent);
 }
 
@@ -113,11 +120,7 @@ fn spawn_block(
     //See to URL 'https://bevyengine.org/learn/book/migration-guides/0.4-0.5/#simplified-events'
     mut new_block_events_reader: EventReader<NewBlockEvent>,
 ) {
-    if new_block_events_reader
-        .iter()
-        .next()
-        .is_none()
-    {
+    if new_block_events_reader.iter().next().is_none() {
         return;
     }
 
@@ -137,5 +140,20 @@ fn spawn_block(
                 y: (initial_y as i32 + r_y),
             },
         );
+    });
+}
+
+fn game_timer(time: Res<Time>, mut timer: ResMut<GameTimer>) {
+    //See to URL 'https://bevyengine.org/learn/book/migration-guides/0.4-0.5/#timer-now-uses-duration'
+    timer.0.tick(time.delta());
+}
+
+fn block_fall(timer: ResMut<GameTimer>, mut block_query: Query<(Entity, &mut Position)>) {
+    if !timer.0.finished() {
+        return;
+    }
+
+    block_query.iter_mut().for_each(|(_, mut pos)| {
+        pos.y -= 1;
     });
 }
