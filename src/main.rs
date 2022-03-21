@@ -16,6 +16,9 @@ struct Position {
     y: i32,
 }
 
+#[derive(Component, Clone, PartialEq, Eq)]
+struct BlockPatterns(Vec<Vec<(i32, i32)>>);
+
 fn main() {
     App::new()
         .insert_resource(WindowDescriptor {
@@ -24,9 +27,18 @@ fn main() {
             height: SCREEN_HEIGHT as f32,
             ..Default::default()
         })
+        .insert_resource(BlockPatterns(vec![
+            vec![(0, 0), (0, -1), (0, 1), (0, 2)],  // I
+            vec![(0, 0), (0, -1), (0, 1), (-1, 1)], // L
+            vec![(0, 0), (0, -1), (0, 1), (1, 1)],  // 逆L
+            vec![(0, 0), (0, -1), (1, 0), (1, 1)],  // Z
+            vec![(0, 0), (1, 0), (0, 1), (1, -1)],  // 逆Z
+            vec![(0, 0), (0, 1), (1, 0), (1, 1)],   // 四角
+            vec![(0, 0), (-1, 0), (1, 0), (0, 1)],  // T
+        ]))
         .add_startup_system(setup_camera)
         .add_system(position_transform)
-        .add_system(spawn_block_element)
+        .add_system(spawn_block)
         .add_plugins(DefaultPlugins)
         .run();
 }
@@ -50,8 +62,20 @@ fn position_transform(mut position_query: Query<(&Position, &mut Transform, &mut
         });
 }
 
-fn spawn_block_element(mut commands: Commands) {
+fn spawn_block_element(commands: &mut Commands, color: Color, position: Position) {
     //See to URL 'https://bevyengine.org/learn/book/migration-guides/0.5-0.6/#spritebundle-and-sprite'
+    commands
+        .spawn_bundle(SpriteBundle {
+            sprite: Sprite {
+                color,
+                ..Default::default()
+            },
+            ..Default::default()
+        })
+        .insert(position);
+}
+
+fn next_color() -> Color {
     let colors = vec![
         Color::rgb_u8(64, 230, 100),
         Color::rgb_u8(220, 64, 90),
@@ -63,14 +87,36 @@ fn spawn_block_element(mut commands: Commands) {
     let mut rng = rand::thread_rng();
     let mut color_index: usize = rng.gen();
     color_index %= colors.len();
+    colors[color_index].clone()
+}
 
-    commands
-        .spawn_bundle(SpriteBundle {
-            sprite: Sprite {
-                color: colors[color_index],
-                ..Default::default()
+fn next_block(block_patterns: &Vec<Vec<(i32, i32)>>) -> Vec<(i32, i32)> {
+    let mut rng = rand::thread_rng();
+    let mut pattern_index: usize = rng.gen();
+    pattern_index %= block_patterns.len();
+
+    block_patterns[pattern_index].clone()
+}
+
+fn spawn_block(
+    mut commands: Commands,
+    block_patterns: Res<BlockPatterns>,
+) {
+    let new_block = next_block(&block_patterns.0);
+    let new_color = next_color();
+
+    // ブロックの初期位置
+    let initial_x = X_LENGTH / 2;
+    let initial_y = Y_LENGTH - 4;
+
+    new_block.iter().for_each(|(r_x, r_y)| {
+        spawn_block_element(
+            &mut commands,
+            new_color.clone(),
+            Position {
+                x: (initial_x as i32 + r_x),
+                y: (initial_y as i32 + r_y),
             },
-            ..Default::default()
-        })
-        .insert(Position { x: 1, y: 5 });
+        );
+    });
 }
