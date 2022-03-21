@@ -19,8 +19,14 @@ struct Position {
 #[derive(Component, Clone, PartialEq, Eq)]
 struct BlockPatterns(Vec<Vec<(i32, i32)>>);
 
+#[derive(Component)]
+struct Fix;
+#[derive(Component)]
+struct Free;
+
 struct NewBlockEvent;
 struct GameTimer(Timer);
+struct GameBoard(Vec<Vec<bool>>);
 
 fn main() {
     App::new()
@@ -43,6 +49,7 @@ fn main() {
             std::time::Duration::from_millis(400),
             true,
         )))
+        .insert_resource(GameBoard(vec![vec![false; 25]; 25]))
         .add_event::<NewBlockEvent>()
         .add_startup_system(setup_camera)
         .add_startup_system(setup)
@@ -88,7 +95,8 @@ fn spawn_block_element(commands: &mut Commands, color: Color, position: Position
             },
             ..Default::default()
         })
-        .insert(position);
+        .insert(position)
+        .insert(Free);
 }
 
 fn next_color() -> Color {
@@ -148,12 +156,36 @@ fn game_timer(time: Res<Time>, mut timer: ResMut<GameTimer>) {
     timer.0.tick(time.delta());
 }
 
-fn block_fall(timer: ResMut<GameTimer>, mut block_query: Query<(Entity, &mut Position)>) {
+fn block_fall(
+    mut commands: Commands,
+    timer: ResMut<GameTimer>,
+    mut block_query: Query<(Entity, &mut Position, &Free)>,
+    mut game_board: ResMut<GameBoard>,
+    mut new_block_events: EventWriter<NewBlockEvent>,
+) {
     if !timer.0.finished() {
         return;
     }
 
-    block_query.iter_mut().for_each(|(_, mut pos)| {
-        pos.y -= 1;
+    let cannot_fall = block_query.iter_mut().any(|(_, pos, _)| {
+        if pos.x as u32 >= X_LENGTH || pos.y as u32 >= Y_LENGTH {
+            return false;
+        }
+        // yが0、または一つ下にブロックがすでに存在する
+        pos.y == 0 || game_board.0[(pos.y - 1) as usize][pos.x as usize]
     });
+
+    if cannot_fall {
+        block_query.iter_mut().for_each(|(entity, pos, _)| {
+            //See to URL 'https://bevyengine.org/learn/book/migration-guides/0.4-0.5/#commands-api'
+            commands.entity(entity).remove::<Free>();
+            commands.entity(entity).insert(Fix);
+            game_board.0[pos.y as usize][pos.x as usize] = true;
+        });
+        new_block_events.send(NewBlockEvent);
+    } else {
+        block_query.iter_mut().for_each(|(_, mut pos, _)| {
+            pos.y -= 1;
+        });
+    }
 }
