@@ -63,6 +63,7 @@ fn main() {
         .add_system(game_timer)
         .add_system(block_fall)
         .add_system(block_horizontal_move)
+        .add_system(block_vertical_move)
         .add_plugins(DefaultPlugins)
         .run();
 }
@@ -251,4 +252,40 @@ fn block_horizontal_move(
             });
         }
     }
+}
+
+fn block_vertical_move(
+    key_input: Res<Input<KeyCode>>,
+    mut game_board: ResMut<GameBoard>,
+    mut free_block_query: Query<(Entity, &mut Position, &Free)>,
+) {
+    if !key_input.just_pressed(KeyCode::Down) {
+        return;
+    }
+
+    let mut down_height = 0;
+    let mut collide = false;
+
+    // ブロックが衝突する位置を調べる
+    while !collide {
+        down_height += 1;
+        free_block_query.iter_mut().for_each(|(_, pos, _)| {
+            if pos.y < down_height {
+                collide = true;
+                return;
+            }
+
+            if game_board.0[(pos.y - down_height) as usize][pos.x as usize] {
+                collide = true;
+            }
+        });
+    }
+
+    // ブロックが衝突しないギリギリの位置まで移動
+    down_height -= 1;
+    free_block_query.iter_mut().for_each(|(_, mut pos, _)| {
+        game_board.0[pos.y as usize][pos.x as usize] = false;
+        pos.y -= down_height;
+        game_board.0[pos.y as usize][pos.x as usize] = true;
+    });
 }
