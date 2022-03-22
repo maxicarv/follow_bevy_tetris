@@ -62,6 +62,7 @@ fn main() {
         .add_event::<NewBlockEvent>()
         .add_startup_system(setup_camera)
         .add_startup_system(setup)
+        .add_system(delete_line)
         .add_system(position_transform)
         .add_system(spawn_block)
         .add_system(game_timer)
@@ -357,4 +358,62 @@ fn block_rotate(
             pos.x = new_pos_x;
             pos.y = new_pos_y;
         });
+}
+
+fn delete_line(
+    mut commands: Commands,
+    timer: ResMut<GameTimer>,
+    mut game_board: ResMut<GameBoard>,
+    mut fixed_block_query: Query<(Entity, &mut Position, &Fix)>,
+) {
+    if !timer.0.finished() {
+        return;
+    }
+
+    // 消去対象のブロック行をHashSetに入れていく
+    let mut delete_line_set = std::collections::HashSet::new();
+    for y in 0..Y_LENGTH {
+        let mut delete_current_line = true;
+        for x in 0..X_LENGTH {
+            if !game_board.0[y as usize][x as usize] {
+                delete_current_line = false;
+                break;
+            }
+        }
+
+        if delete_current_line {
+            delete_line_set.insert(y);
+        }
+    }
+
+    // 消去対象ブロック行に含まれるブロックをゲーム盤面から削除する
+    fixed_block_query.iter_mut().for_each(|(_, pos, _)| {
+        if delete_line_set.get(&(pos.y as u32)).is_some() {
+            game_board.0[pos.y as usize][pos.x as usize] = false;
+        }
+    });
+
+    // 各Y座標について、ブロック消去適用後の新しいY座標を調べる
+    let mut new_y = vec![0i32; Y_LENGTH as usize];
+    for y in 0..Y_LENGTH {
+        let mut down = 0;
+        delete_line_set.iter().for_each(|line| {
+            if y > *line {
+                down += 1;
+            }
+        });
+        new_y[y as usize] = y as i32 - down;
+    }
+
+    fixed_block_query.iter_mut().for_each(|(entity, mut pos, _)| {
+        if delete_line_set.get(&(pos.y as u32)).is_some() {
+            // 消去の対象のブロックをゲームから取り除く
+            commands.entity(entity).despawn();
+        } else {
+            // ブロック消去適用後の新しいY座標を適用
+            game_board.0[pos.y as usize][pos.x as usize] = false;
+            pos.y = new_y[pos.y as usize];
+            game_board.0[pos.y as usize][pos.x as usize] = true;
+        }
+    });
 }
